@@ -4,7 +4,9 @@ TransactionalGraphSystemDriver is a unified benchmark driver for evaluating tran
 
 The repository contains the driver and selected system integrations. Some systems used in the paper are optional because their source code is not redistributed here. Experimental batch scripts, generated results, and plots are intentionally not part of the public source package.
 
-AVBGraph is also maintained as a clean standalone repository: [Mustingu/AVBGraph](https://github.com/Mustingu/AVBGraph).
+## AVBGraph repository
+
+For the standalone AVBGraph implementation and its API documentation, see [Mustingu/AVBGraph](https://github.com/Mustingu/AVBGraph). This repository provides the unified benchmark driver and system integrations used for the experiments.
 
 ## Driver overview
 
