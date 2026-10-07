@@ -1,0 +1,190 @@
+#############################################################################
+# Autoconf variables
+
+# builddir: where to build the final artifacts
+builddir := .
+# objectdir: container of the objects
+objectdir := objects
+
+# Current position
+srcdir := @srcdir@
+VPATH := @srcdir@
+top_srcdir := @top_srcdir@
+
+# Compiler programs & flags
+AR := ar
+AR_FLAGS := rcsP
+CC := @CC@
+CXX := @CXX@
+CPPFLAGS := @CPPFLAGS@ 
+EXTRA_CPPFLAGS := @EXTRA_CPPFLAGS@ # extra flags defined by autoconf, similar to AM_CPPFLAGS
+SRC_CPPFLAGS := -I@top_srcdir@/include -I@builddir@/include
+ALL_CPPFLAGS := ${CPPFLAGS} ${EXTRA_CPPFLAGS} ${SRC_CPPFLAGS}
+CFLAGS := @CFLAGS@ 
+EXTRA_CFLAGS := @EXTRA_CFLAGS@ # extra flags defined by autoconf, similar to AM_CFLAGS
+ALL_CFLAGS := ${ALL_CPPFLAGS} ${EXTRA_CFLAGS} ${CFLAGS}
+CXXFLAGS := @CXXFLAGS@
+EXTRA_CXXFLAGS := @EXTRA_CXXFLAGS@ # extra flags defined by autoconf, similar to AM_CXXFLAGS
+ALL_CXXFLAGS := ${ALL_CPPFLAGS} ${EXTRA_CXXFLAGS} ${CXXFLAGS}
+LDFLAGS := @LDFLAGS@ # Linker
+
+#############################################################################
+# List of the sources to compile
+sources := \
+	aux/builder.cpp \
+	aux/cache.cpp \
+	aux/cb_serialise_build.cpp \
+	aux/counting_tree.cpp \
+	aux/dynamic_view.cpp \
+	aux/item.cpp \
+	aux/partial_result.cpp \
+	aux/static_view.cpp \
+	aux/view.cpp \
+	context/global_context.cpp \
+	context/property_snapshot.cpp \
+	context/tc_list.cpp \
+	context/thread_context.cpp \
+	gc/garbage_collector.cpp \
+	gc/item.cpp \
+	gc/simple_queue.cpp \
+	gc/tc_queue.cpp \
+	memstore/context.cpp \
+	memstore/cursor_state.cpp \
+	memstore/data_item.cpp \
+	memstore/dense_file.cpp \
+	memstore/direct_pointer.cpp \
+	memstore/index.cpp \
+	memstore/latch_state.cpp \
+	memstore/leaf.cpp \
+	memstore/memstore.cpp \
+	memstore/remove_vertex.cpp \
+	memstore/segment.cpp \
+	memstore/sparse_file.cpp \
+	memstore/update.cpp \
+	memstore/vertex_table.cpp \
+	memstore/wake_list.cpp \
+	profiler/direct_access.cpp \
+	profiler/event_global.cpp \
+	profiler/event_thread.cpp \
+	profiler/rebal_global_list.cpp \
+	profiler/rebal_list.cpp \
+	profiler/rebal_profiler.cpp \
+	profiler/rebal_stats.cpp \
+	profiler/save_to_disk.cpp \
+	profiler/scoped_timer.cpp \
+	rebalance/crawler.cpp \
+	rebalance/merge_operator.cpp \
+	rebalance/merger_service.cpp \
+	rebalance/plan.cpp \
+	rebalance/rebalance.cpp \
+	rebalance/rebalanced_leaf.cpp \
+	rebalance/scratchpad.cpp \
+	rebalance/spread_operator.cpp \
+	rebalance/weighted_edge.cpp \
+	runtime/queue.cpp \
+	runtime/runtime.cpp \
+	runtime/task.cpp \
+	runtime/timer_service.cpp \
+	runtime/worker.cpp \
+	transaction/memory_pool.cpp \
+	transaction/memory_pool_list.cpp \
+	transaction/rollback_interface.cpp \
+	transaction/transaction_list.cpp \
+	transaction/transaction_impl.cpp \
+	transaction/transaction_sequence.cpp \
+	transaction/undo_buffer.cpp \
+	transaction/undo.cpp \
+	util/chrono.cpp \
+	util/cpu_topology.cpp \
+	util/debug.cpp \
+	util/error.cpp \
+	util/interface.cpp \
+	util/libevent.cpp \
+	util/numa.cpp \
+	util/system.cpp \
+	util/thread.cpp \
+	util/timer.cpp \
+	teseo.cpp
+	
+#############################################################################
+# Helper variables
+artifact := libteseo.a
+makedepend_c = @$(CC) -MM $(ALL_CFLAGS) -MP -MT $@ -MF $(basename $@).d $<
+makedepend_cxx = @$(CXX) -MM $(ALL_CXXFLAGS) -MP -MT $@ -MF $(basename $@).d $<
+# Library objects
+objectdirs := $(patsubst %./, %, $(sort $(addprefix ${objectdir}/, $(dir ${sources}))))
+objects_c := $(addprefix ${objectdir}/, $(patsubst %.c, %.o, $(filter %.c, ${sources})))
+objects_cxx := $(addprefix ${objectdir}/, $(patsubst %.cpp, %.o, $(filter %.cpp, ${sources})))
+objects := ${objects_c} ${objects_cxx}
+builddir_abs_path := $(abspath ${builddir})
+# Includes 
+includes := $(patsubst ${srcdir}/%, ${builddir_abs_path}/%, $(shell find ${srcdir}/include/ -name '*.hpp' -printf '%p '))
+
+.DEFAULT_GOAL = all
+.PHONY: all
+
+all: ${artifact}
+
+#############################################################################
+# Artifact to build
+${artifact}: ${objects}
+	$(AR) $(AR_FLAGS) $@ $^
+
+# Objects from C files
+${objects_c} : ${objectdir}/%.o : src/%.c | ${objectdirs}
+	${makedepend_c}
+	${CC} -c ${ALL_CFLAGS} $< -o $@
+
+# Objects from C++ files
+${objects_cxx}: ${objectdir}/%.o : src/%.cpp | ${objectdirs}
+	${makedepend_cxx}
+	$(CXX) -c $(ALL_CXXFLAGS) $< -o $@
+
+#############################################################################
+# Tests
+testsources := $(notdir $(wildcard ${srcdir}/tests/*.cpp))
+testobjectdir = ${objectdir}/tests
+testobjects := $(addprefix ${testobjectdir}/, $(patsubst %.cpp, %.o, $(filter %.cpp, ${testsources})))
+testbindir := $(abspath ${builddir}/${testfolder})
+testartifact := testsuite
+testignored := "" # space separated list
+
+.PHONY: check
+check: ${testartifact}
+	./${testartifact}
+
+${testartifact}: ${artifact} ${testobjects}
+	${CXX} ${testobjects} -L${builddir} -lteseo ${LDFLAGS} -o $@
+	
+${testobjects}: ${testobjectdir}/%.o : tests/%.cpp | ${testobjectdir}	
+	${makedepend_cxx}
+	$(CXX) -c $(ALL_CXXFLAGS) $< -o $@
+
+#############################################################################
+# Build directories
+${builddir} ${objectdirs} ${testbindir} ${testobjectdir} ${includedirs}:
+	mkdir -pv $@
+
+#############################################################################
+# Remove everything from the current build
+.PHONY: clean
+clean:
+	rm -rf ${builddir}/${artifact}
+	rm -rf ${builddir}/${objectdir}
+	rm -rf ${builddir}/${testartifact}
+	
+#############################################################################
+# Regenerate the Makefile when the configuration has been changed
+$(srcdir)/configure: configure.ac aclocal.m4
+	cd '$(srcdir)' && autoconf
+	
+config.status: configure
+	./config.status --recheck
+	
+Makefile: Makefile.in config.status
+	./config.status
+	
+#############################################################################
+# Dependencies to update the translation units if a header has been altered
+-include ${objects:.o=.d}
+-include ${testobjects:.o=.d}

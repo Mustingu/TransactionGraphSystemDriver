@@ -1,0 +1,13 @@
+# Project files
+/.cproject
+/.project
+/.settings/
+
+# Autoconf
+/autom4te.cache/
+/configure
+
+# Builds
+/build/
+/Debug/
+/Release/
